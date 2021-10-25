@@ -95,7 +95,7 @@ jobs:
           buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
 
       - name: Push manifest
-        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://docker.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
+        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
       # - name: Push manifest
       #   uses: redhat-actions/push-to-registry@v2
       #   with:
