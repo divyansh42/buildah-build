@@ -17,10 +17,6 @@ jobs:
     env:
       IMAGE_NAME: hello-world-multiarch
     runs-on: ubuntu-20.04
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [ amd64, i386, arm64v8 ]
 
     steps:
 
@@ -29,21 +25,37 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-user-static
 
-      - name: Create Containerfile
+      - name: Create Containerfile1
         run: |
-          cat > Containerfile<<EOF
+          cat > Containerfile1<<EOF
 
           ARG ARCH
-          FROM docker.io/\${ARCH}/alpine:3.14
+          FROM docker.io/amd64/alpine:3.14
 
           RUN echo "hello world"
 
           ENTRYPOINT [ "sh", "-c", "echo -n 'Machine: ' && uname -m && echo -n 'Bits: ' && getconf LONG_BIT && echo 'goodbye world'" ]
           EOF
 
-      - name: Build image
+      - name: Create Containerfile2
         run: |
-          buildah bud --arch ${{ matrix.arch }} -f ./Containerfile --build-arg ARCH=${{ matrix.arch }} --format docker -t ${{ env.IMAGE_NAME }}:${{ matrix.arch }}
+          cat > Containerfile2<<EOF
+
+          ARG ARCH
+          FROM docker.io/arm64v8/alpine:3.14
+
+          RUN echo "hello world"
+
+          ENTRYPOINT [ "sh", "-c", "echo -n 'Machine: ' && uname -m && echo -n 'Bits: ' && getconf LONG_BIT && echo 'goodbye world'" ]
+          EOF
+
+      - name: Build image amd64
+        run: |
+          buildah bud --arch amd64 -f ./Containerfile1 --build-arg ARCH=amd64 --format docker -t ${{ env.IMAGE_NAME }}:amd64
+
+      - name: Build image arm64v8
+        run: |
+          buildah bud --arch arm64v8 -f ./Containerfile --build-arg ARCH=arm64v8 --format docker -t ${{ env.IMAGE_NAME }}:arm64v8
 
       # - name: Build Image
       #   id: build_image_multiarch
@@ -73,7 +85,24 @@ jobs:
 
       - name: Run image
         run: |
-          podman run --rm ${{ env.IMAGE_NAME }}:${{ matrix.arch }}
+          podman run --rm ${{ env.IMAGE_NAME }}:amd64
+          podman run --rm ${{ env.IMAGE_NAME }}:arm64v8
+
+      - name: Create and add to manifest
+        run: |
+          buildah manifest create ${{ env.IMAGE_NAME }}
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:amd64
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
+
+      - name: Push manifest
+        uses: redhat-actions/push-to-registry@v1
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: latest
+          registry: quay.io
+          username: diagrawa
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
 
   # build-multiplatform-containerfile:
   #   name: Build multi-platform image using Containerfile
