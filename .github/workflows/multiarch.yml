@@ -21,7 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         arch: [ amd64, i386, arm64v8 ]
-        install_latest: [ true, false ]
 
     steps:
 
