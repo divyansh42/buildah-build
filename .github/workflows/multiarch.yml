@@ -95,13 +95,15 @@ jobs:
           buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
 
       - name: Push manifest
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: latest
-          registry: quay.io/diagrawa
-          username: diagrawa
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest
+      # - name: Push manifest
+      #   uses: redhat-actions/push-to-registry@v2
+      #   with:
+      #     image: ${{ env.IMAGE_NAME }}
+      #     tags: latest
+      #     registry: quay.io/diagrawa
+      #     username: diagrawa
+      #     password: ${{ secrets.REGISTRY_PASSWORD }}
 
 
   # build-multiplatform-containerfile:
