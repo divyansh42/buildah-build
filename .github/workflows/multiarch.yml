@@ -68,12 +68,12 @@ jobs:
       - name: Check image metadata
         run: |
           set -x
-          buildah inspect ${{ steps.build_image_multiarch.outputs.image }}:${{ matrix.arch }} | jq ".OCIv1.architecture"
-          buildah inspect ${{ steps.build_image_multiarch.outputs.image }}:${{ matrix.arch }} | jq ".Docker.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:${{ matrix.arch }} | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:${{ matrix.arch }} | jq ".Docker.architecture"
 
       - name: Run image
         run: |
-          podman run --rm ${{ steps.build_image_multiarch.outputs.image }}:${{ matrix.arch }}
+          podman run --rm ${{ env.IMAGE_NAME }}:${{ matrix.arch }}
 
   # build-multiplatform-containerfile:
   #   name: Build multi-platform image using Containerfile
