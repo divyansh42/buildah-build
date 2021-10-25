@@ -55,7 +55,7 @@ jobs:
 
       - name: Build image arm64v8
         run: |
-          buildah bud --arch arm64v8 -f ./Containerfile --build-arg ARCH=arm64v8 --format docker -t ${{ env.IMAGE_NAME }}:arm64v8
+          buildah bud --arch arm64v8 -f ./Containerfile2 --build-arg ARCH=arm64v8 --format docker -t ${{ env.IMAGE_NAME }}:arm64v8
 
       # - name: Build Image
       #   id: build_image_multiarch
