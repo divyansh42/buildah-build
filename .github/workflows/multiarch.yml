@@ -80,8 +80,10 @@ jobs:
       - name: Check image metadata
         run: |
           set -x
-          buildah inspect ${{ env.IMAGE_NAME }}:${{ matrix.arch }} | jq ".OCIv1.architecture"
-          buildah inspect ${{ env.IMAGE_NAME }}:${{ matrix.arch }} | jq ".Docker.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".Docker.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:arm64v8 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:arm64v8 | jq ".Docker.architecture"
 
       - name: Run image
         run: |
@@ -94,87 +96,83 @@ jobs:
           buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:amd64
           buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
 
-      # - name: Push manifest
-      #   run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
       - name: Push manifest
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: latest
-          registry: quay.io/diagrawa
-          username: diagrawa
-          extra-args: --all
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
+      # - name: Push manifest
+      #   uses: redhat-actions/push-to-registry@v2
+      #   with:
+      #     image: ${{ env.IMAGE_NAME }}
+      #     tags: latest
+      #     registry: quay.io/diagrawa
+      #     username: diagrawa
+      #     extra-args: --all
+      #     password: ${{ secrets.REGISTRY_PASSWORD }}
 
 
-  # build-multiplatform-containerfile:
-  #   name: Build multi-platform image using Containerfile
-  #   env:
-  #     IMAGE_NAME: hello-world-multiplatform
-  #   runs-on: ubuntu-20.04
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       platform: [ "linux/amd64", "linux/arm64/v8" ]
-  #       install_latest: [ true, false ]
+  build-multiplatform-containerfile:
+    name: Build multi-platform image using Containerfile
+    env:
+      IMAGE_NAME: hello-world-multiplatform
+    runs-on: ubuntu-20.04
+    steps:
 
-  #   steps:
+      - name: Install qemu dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
 
-  #     # Checkout buildah action github repository
-  #     - name: Checkout Buildah action
-  #       uses: actions/checkout@v2
-  #       with:
-  #         path: "buildah-build"
+      - name: Create Containerfile3
+        run: |
+          cat > Containerfile3<<EOF
 
-  #     - name: Install latest buildah
-  #       if: matrix.install_latest
-  #       run: |
-  #         bash buildah-build/.github/install_latest_buildah.sh
+          FROM docker.io/alpine:3.14
 
-  #     - name: Install qemu dependency
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y qemu-user-static
+          RUN echo "hello world"
 
-  #     - name: Create Containerfile
-  #       run: |
-  #         cat > Containerfile<<EOF
+          ENTRYPOINT [ "sh", "-c", "echo -n 'Machine: ' && uname -m && echo -n 'Bits: ' && getconf LONG_BIT && echo 'goodbye world'" ]
+          EOF
 
-  #         FROM docker.io/alpine:3.14
+      # - name: Build Image
+      #   id: build_image_multiplatform
+      #   uses: ./buildah-build/
+      #   with:
+      #     image: ${{ env.IMAGE_NAME }}
+      #     tags: ${{ env.IMAGE_TAG }}
+      #     platform: ${{ matrix.platform }}
+      #     containerfiles: |
+      #       ./Containerfile
 
-  #         RUN echo "hello world"
+      - name: Build image linux/amd64
+        run: buildah bud --platform linux/amd64 -f ./Containerfile3 --format docker -t ${{ env.IMAGE_NAME }}:linux-amd64
 
-  #         ENTRYPOINT [ "sh", "-c", "echo -n 'Machine: ' && uname -m && echo -n 'Bits: ' && getconf LONG_BIT && echo 'goodbye world'" ]
-  #         EOF
+      - name: Build image linux/arm64/v8
+        run: buildah bud --platform linux/arm64/v8 -f ./Containerfile3 --format docker -t ${{ env.IMAGE_NAME }}:linux-arm64-v8
 
-  #     - name: Build Image
-  #       id: build_image_multiplatform
-  #       uses: ./buildah-build/
-  #       with:
-  #         image: ${{ env.IMAGE_NAME }}
-  #         tags: ${{ env.IMAGE_TAG }}
-  #         platform: ${{ matrix.platform }}
-  #         containerfiles: |
-  #           ./Containerfile
+      # - name: Echo Outputs
+      #   run: |
+      #     echo "Image: ${{ steps.build_image_multiplatform.outputs.image }}"
+      #     echo "Tags: ${{ steps.build_image_multiplatform.outputs.tags }}"
+      #     echo "Tagged Image: ${{ steps.build_image_multiplatform.outputs.image-with-tag }}"
 
-  #     - name: Echo Outputs
-  #       run: |
-  #         echo "Image: ${{ steps.build_image_multiplatform.outputs.image }}"
-  #         echo "Tags: ${{ steps.build_image_multiplatform.outputs.tags }}"
-  #         echo "Tagged Image: ${{ steps.build_image_multiplatform.outputs.image-with-tag }}"
+      - name: Check images created
+        run: buildah images | grep '${{ env.IMAGE_NAME }}'
 
-  #     - name: Check images created
-  #       run: buildah images | grep '${{ env.IMAGE_NAME }}'
+      - name: Check image metadata
+        run: |
+          set -x
+          buildah inspect ${{ env.IMAGE_NAME }}:linux-amd64 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:linux-amd64 | jq ".Docker.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:linux-arm64-v8 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:linux-arm64-v8 | jq ".Docker.architecture"
 
-  #     - name: Check image metadata
-  #       run: |
-  #         set -x
-  #         buildah inspect ${{ steps.build_image_multiplatform.outputs.image }}:${{ env.IMAGE_TAG }} | jq ".OCIv1.architecture"
-  #         buildah inspect ${{ steps.build_image_multiplatform.outputs.image }}:${{ env.IMAGE_TAG }} | jq ".Docker.architecture"
+      - name: Create and add to manifest
+        run: |
+          buildah manifest create ${{ env.IMAGE_NAME }}
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:linux-amd64
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:linux-arm64-v8
 
-  #     - name: Run image
-  #       run: |
-  #         podman run --rm ${{ steps.build_image_multiplatform.outputs.image }}:${{ env.IMAGE_TAG }}
+      - name: Push manifest
+        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
 
   # build-multiarch-scratch:
   #   name: Build multi-architecture image from scratch
