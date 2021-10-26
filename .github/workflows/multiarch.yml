@@ -174,107 +174,130 @@ jobs:
       - name: Push manifest
         run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
 
-  # build-multiarch-scratch:
-  #   name: Build multi-architecture image from scratch
-  #   env:
-  #     IMAGE_NAME: spring-petclinic-multiarch
-  #   runs-on: ubuntu-20.04
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       arch: [ amd64, i386, arm64v8 ]
-  #       install_latest: [ true, false ]
+  build-multiarch-scratch:
+    name: Build multi-architecture image from scratch
+    env:
+      IMAGE_NAME: spring-petclinic-multiarch
+    runs-on: ubuntu-20.04
 
-  #   steps:
+    steps:
 
-  #     # Checkout buildah action github repository
-  #     - name: Checkout Buildah action
-  #       uses: actions/checkout@v2
-  #       with:
-  #         path: "buildah-build"
+      # Checkout buildah action github repository
+      - name: Checkout Buildah action
+        uses: actions/checkout@v2
+        with:
+          path: "buildah-build"
 
-  #     - name: Install latest buildah
-  #       if: matrix.install_latest
-  #       run: |
-  #         bash buildah-build/.github/install_latest_buildah.sh
+      - name: Install latest buildah
+        if: matrix.install_latest
+        run: |
+          bash buildah-build/.github/install_latest_buildah.sh
 
-  #     - name: Install qemu dependency
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y qemu-user-static
+      - name: Install qemu dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
 
-  #     # Checkout spring-petclinic github repository
-  #     - name: Checkout spring-petclinic project
-  #       uses: actions/checkout@v2
-  #       with:
-  #         repository: "spring-projects/spring-petclinic"
-  #         path: ${{ env.PROJECT_DIR }}
+      # Checkout spring-petclinic github repository
+      - name: Checkout spring-petclinic project
+        uses: actions/checkout@v2
+        with:
+          repository: "spring-projects/spring-petclinic"
+          path: ${{ env.PROJECT_DIR }}
 
-  #     # If none of these files has changed, we assume that the contents of
-  #     # .m2/repository can be fetched from the cache.
-  #     - name: Hash Maven files
-  #       working-directory: ${{ env.PROJECT_DIR }}
-  #       run: |
-  #         echo "MVN_HASH=${{ hashFiles('**/pom.xml', '.mvn/**/*', 'mvnw*') }}" >> $GITHUB_ENV
+      # If none of these files has changed, we assume that the contents of
+      # .m2/repository can be fetched from the cache.
+      - name: Hash Maven files
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          echo "MVN_HASH=${{ hashFiles('**/pom.xml', '.mvn/**/*', 'mvnw*') }}" >> $GITHUB_ENV
 
-  #     # Download the m2 repository from the cache to speed up the build.
-  #     - name: Check for Maven cache
-  #       id: check-mvn-cache
-  #       uses: actions/cache@v2
-  #       with:
-  #         path: ${{ env.MVN_REPO_DIR }}
-  #         key: ${{ env.MVN_HASH }}
+      # Download the m2 repository from the cache to speed up the build.
+      - name: Check for Maven cache
+        id: check-mvn-cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.MVN_REPO_DIR }}
+          key: ${{ env.MVN_HASH }}
 
-  #     # Setup java.
-  #     - name: Setup Java
-  #       uses: actions/setup-java@v1
-  #       with:
-  #         java-version: 11
+      # Setup java.
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
 
-  #     # Run maven to build the project
-  #     - name: Maven
-  #       working-directory: ${{ env.PROJECT_DIR }}
-  #       run: |
-  #         mvn package -ntp -B
+      # Run maven to build the project
+      - name: Maven
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          mvn package -ntp -B
 
-  #      # If there was no cache hit above, store the output into the cache now.
-  #     - name: Save Maven repo into cache
-  #       if: ${{ steps.check-mvn-cache.outputs.cache-hit }} != 'true'
-  #       uses: actions/cache@v2
-  #       with:
-  #         path: ${{ env.MVN_REPO_DIR }}
-  #         key: ${{ env.MVN_HASH }}
+       # If there was no cache hit above, store the output into the cache now.
+      - name: Save Maven repo into cache
+        if: ${{ steps.check-mvn-cache.outputs.cache-hit }} != 'true'
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.MVN_REPO_DIR }}
+          key: ${{ env.MVN_HASH }}
 
-  #     - name: Build Image
-  #       id: build_image_multiarch
-  #       uses: ./buildah-build/
-  #       with:
-  #         image: ${{ env.IMAGE_NAME }}
-  #         tags: ${{ env.IMAGE_TAG }}
-  #         base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
-  #         arch: ${{ matrix.arch }}
-  #         build-args: ARCH=${{ matrix.arch }}
-  #         # To avoid hardcoding a particular version of the binary.
-  #         content: |
-  #           ./spring-petclinic/target/spring-petclinic-*.jar
-  #         entrypoint: |
-  #           java
-  #           -jar
-  #           spring-petclinic-*.jar
-  #         port: 8080
-  #         workdir: "."
+      - name: Build Image amd64
+        uses: ./buildah-build/
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: amd64
+          base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
+          arch: amd64
+          build-args: ARCH=amd64
+          # To avoid hardcoding a particular version of the binary.
+          content: |
+            ./spring-petclinic/target/spring-petclinic-*.jar
+          entrypoint: |
+            java
+            -jar
+            spring-petclinic-*.jar
+          port: 8080
+          workdir: "."
 
-  #     - name: Echo Outputs
-  #       run: |
-  #         echo "Image: ${{ steps.build_image_multiarch.outputs.image }}"
-  #         echo "Tags: ${{ steps.build_image_multiarch.outputs.tags }}"
-  #         echo "Tagged Image: ${{ steps.build_image_multiarch.outputs.image-with-tag }}"
+      - name: Build Image arm64v8
+        uses: ./buildah-build/
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: arm64v8
+          base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
+          arch: arm64v8
+          build-args: ARCH=arm64v8
+          # To avoid hardcoding a particular version of the binary.
+          content: |
+            ./spring-petclinic/target/spring-petclinic-*.jar
+          entrypoint: |
+            java
+            -jar
+            spring-petclinic-*.jar
+          port: 8080
+          workdir: "."
 
-  #     - name: Check images created
-  #       run: buildah images | grep '${{ env.IMAGE_NAME }}'
+      # - name: Echo Outputs
+      #   run: |
+      #     echo "Image: ${{ steps.build_image_multiarch.outputs.image }}"
+      #     echo "Tags: ${{ steps.build_image_multiarch.outputs.tags }}"
+      #     echo "Tagged Image: ${{ steps.build_image_multiarch.outputs.image-with-tag }}"
 
-  #     - name: Check image metadata
-  #       run: |
-  #         set -x
-  #         buildah inspect ${{ steps.build_image_multiarch.outputs.image }}:${{ env.IMAGE_TAG }} | jq ".OCIv1.architecture"
-  #         buildah inspect ${{ steps.build_image_multiarch.outputs.image }}:${{ env.IMAGE_TAG }} | jq ".Docker.architecture"
+      - name: Check images created
+        run: buildah images | grep '${{ env.IMAGE_NAME }}'
+
+      - name: Check image metadata
+        run: |
+          set -x
+          buildah inspect ${{ env.IMAGE_NAME }}:arm64v8 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:arm64v8 | jq ".Docker.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".Docker.architecture"
+
+      - name: Create and add to manifest
+        run: |
+          buildah manifest create ${{ env.IMAGE_NAME }}
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:amd64
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
+
+      - name: Push manifest
+        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
