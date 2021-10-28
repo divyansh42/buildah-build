@@ -240,41 +240,55 @@ jobs:
           path: ${{ env.MVN_REPO_DIR }}
           key: ${{ env.MVN_HASH }}
 
-      - name: Build Image amd64
-        uses: ./buildah-build/
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: amd64
-          base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
-          arch: amd64
-          build-args: ARCH=amd64
-          # To avoid hardcoding a particular version of the binary.
-          content: |
-            ./spring-petclinic/target/spring-petclinic-*.jar
-          entrypoint: |
-            java
-            -jar
-            spring-petclinic-*.jar
-          port: 8080
-          workdir: "."
+      # - name: Build Image amd64
+      #   uses: ./buildah-build/
+      #   with:
+      #     image: ${{ env.IMAGE_NAME }}
+      #     tags: amd64
+      #     base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
+      #     arch: amd64
+      #     build-args: ARCH=amd64
+      #     # To avoid hardcoding a particular version of the binary.
+      #     content: |
+      #       ./spring-petclinic/target/spring-petclinic-*.jar
+      #     entrypoint: |
+      #       java
+      #       -jar
+      #       spring-petclinic-*.jar
+      #     port: 8080
+      #     workdir: "."
 
-      - name: Build Image arm64v8
-        uses: ./buildah-build/
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: arm64v8
-          base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
-          arch: arm64v8
-          build-args: ARCH=arm64v8
-          # To avoid hardcoding a particular version of the binary.
-          content: |
-            ./spring-petclinic/target/spring-petclinic-*.jar
-          entrypoint: |
-            java
-            -jar
-            spring-petclinic-*.jar
-          port: 8080
-          workdir: "."
+      - name: Build image amd64
+        run: |
+          buildah from registry.access.redhat.com/openjdk/openjdk-11-rhel7
+          buildah config --entrypoint ["java","-jar","spring-petclinic-*.jar"] --port 8080 --arch amd64 --workingdir . openjdk-11-rhel7-working-container
+          buildah copy openjdk-11-rhel7-working-container ./spring-petclinic/target/spring-petclinic-*.jar
+          buildah commit --format docker --manifest ${{ env.IMAGE_NAME }} --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:amd64
+
+      - name: Build image arm64v8
+        run: |
+          buildah from registry.access.redhat.com/openjdk/openjdk-11-rhel7
+          buildah config --entrypoint ["java","-jar","spring-petclinic-*.jar"] --port 8080 --arch arm64v8 --workingdir . openjdk-11-rhel7-working-container
+          buildah copy openjdk-11-rhel7-working-container ./spring-petclinic/target/spring-petclinic-*.jar
+          buildah commit --format docker --manifest ${{ env.IMAGE_NAME }} --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:arm64v8
+
+      # - name: Build Image arm64v8
+      #   uses: ./buildah-build/
+      #   with:
+      #     image: ${{ env.IMAGE_NAME }}
+      #     tags: arm64v8
+      #     base-image: 'registry.access.redhat.com/openjdk/openjdk-11-rhel7'
+      #     arch: arm64v8
+      #     build-args: ARCH=arm64v8
+      #     # To avoid hardcoding a particular version of the binary.
+      #     content: |
+      #       ./spring-petclinic/target/spring-petclinic-*.jar
+      #     entrypoint: |
+      #       java
+      #       -jar
+      #       spring-petclinic-*.jar
+      #     port: 8080
+      #     workdir: "."
 
       # - name: Echo Outputs
       #   run: |
@@ -293,11 +307,11 @@ jobs:
           buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".OCIv1.architecture"
           buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".Docker.architecture"
 
-      - name: Create and add to manifest
-        run: |
-          buildah manifest create ${{ env.IMAGE_NAME }}
-          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:amd64
-          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
+      # - name: Create and add to manifest
+      #   run: |
+      #     buildah manifest create ${{ env.IMAGE_NAME }}
+      #     buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:amd64
+      #     buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
 
       - name: Push manifest
         run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
