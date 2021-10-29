@@ -1,0 +1,112 @@
+name: Multiarch build without containerfile
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  PROJECT_DIR: spring-petclinic
+  MVN_REPO_DIR: ~/.m2/repository
+  IMAGE_TAG: latest
+
+jobs:
+  build-multiarch-scratch:
+    name: Build multi-architecture image from scratch
+    env:
+      IMAGE_NAME: spring-petclinic-multiarch
+    runs-on: ubuntu-20.04
+
+    steps:
+
+      # Checkout buildah action github repository
+      - name: Checkout Buildah action
+        uses: actions/checkout@v2
+        with:
+          path: "buildah-build"
+
+      - name: Install latest buildah
+        if: matrix.install_latest
+        run: |
+          bash buildah-build/.github/install_latest_buildah.sh
+
+      - name: Install qemu dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+
+      # Checkout spring-petclinic github repository
+      - name: Checkout spring-petclinic project
+        uses: actions/checkout@v2
+        with:
+          repository: "spring-projects/spring-petclinic"
+          path: ${{ env.PROJECT_DIR }}
+
+      # If none of these files has changed, we assume that the contents of
+      # .m2/repository can be fetched from the cache.
+      - name: Hash Maven files
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          echo "MVN_HASH=${{ hashFiles('**/pom.xml', '.mvn/**/*', 'mvnw*') }}" >> $GITHUB_ENV
+
+      # Download the m2 repository from the cache to speed up the build.
+      - name: Check for Maven cache
+        id: check-mvn-cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.MVN_REPO_DIR }}
+          key: ${{ env.MVN_HASH }}
+
+      # Setup java.
+      - name: Setup Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+
+      # Run maven to build the project
+      - name: Maven
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          mvn package -ntp -B
+
+       # If there was no cache hit above, store the output into the cache now.
+      - name: Save Maven repo into cache
+        if: ${{ steps.check-mvn-cache.outputs.cache-hit }} != 'true'
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.MVN_REPO_DIR }}
+          key: ${{ env.MVN_HASH }}
+
+      - run: buildah version
+
+      - name: Build image amd64
+        run: |
+          buildah from registry.access.redhat.com/openjdk/openjdk-11-rhel7
+          buildah config --entrypoint ["java","-jar","spring-petclinic-*.jar"] --port 8080 --arch amd64 --workingdir . openjdk-11-rhel7-working-container
+          buildah copy openjdk-11-rhel7-working-container ./spring-petclinic/target/spring-petclinic-*.jar
+          buildah commit --format docker --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:amd64
+
+      - name: Build image arm64v8
+        run: |
+          buildah from registry.access.redhat.com/openjdk/openjdk-11-rhel7
+          buildah config --entrypoint ["java","-jar","spring-petclinic-*.jar"] --port 8080 --arch arm64v8 --workingdir . openjdk-11-rhel7-working-container
+          buildah copy openjdk-11-rhel7-working-container ./spring-petclinic/target/spring-petclinic-*.jar
+          buildah commit --format docker --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:arm64v8
+
+      - name: Check images created
+        run: buildah images | grep '${{ env.IMAGE_NAME }}'
+
+      - name: Check image metadata
+        run: |
+          set -x
+          buildah inspect ${{ env.IMAGE_NAME }}:arm64v8 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:arm64v8 | jq ".Docker.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".OCIv1.architecture"
+          buildah inspect ${{ env.IMAGE_NAME }}:amd64 | jq ".Docker.architecture"
+
+      - name: Create and add to manifest
+        run: |
+          buildah manifest create ${{ env.IMAGE_NAME }}
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:amd64
+          buildah manifest add ${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}:arm64v8
+
+      - name: Push manifest
+        run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
