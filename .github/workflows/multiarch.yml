@@ -197,6 +197,10 @@ jobs:
           path: ${{ env.MVN_REPO_DIR }}
           key: ${{ env.MVN_HASH }}
 
+      - run: apt list buildah
+      - run: cat /etc/*release
+      - run: uname -a
+      - run: cat /etc/containers/storage.conf
       # - name: Build Image amd64
       #   uses: ./buildah-build/
       #   with:
