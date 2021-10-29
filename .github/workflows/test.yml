@@ -43,4 +43,4 @@ jobs:
 
       - run: buildah manifest inspect test-multiarch
 
-      - run: buildah manifest push test-multiarch:latest docker://quay.io/diagrawa/test-multiarch:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
+      - run: buildah manifest push test-multiarch:latest docker://docker.io/diagrawa/test-multiarch:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
