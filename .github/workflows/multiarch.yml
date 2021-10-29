@@ -57,23 +57,6 @@ jobs:
         run: |
           buildah bud --arch arm64v8 -f ./Containerfile2 --build-arg ARCH=arm64v8 --format docker -t ${{ env.IMAGE_NAME }}:arm64v8
 
-      # - name: Build Image
-      #   id: build_image_multiarch
-      #   uses: ./buildah-build/
-      #   with:
-      #     image: ${{ env.IMAGE_NAME }}
-      #     tags: ${{ env.IMAGE_TAG }}
-      #     arch: ${{ matrix.arch }}
-      #     build-args: ARCH=${{ matrix.arch }}
-      #     containerfiles: |
-      #       ./Containerfile
-
-      # - name: Echo Outputs
-      #   run: |
-      #     echo "Image: ${{ steps.build_image_multiarch.outputs.image }}"
-      #     echo "Tags: ${{ steps.build_image_multiarch.outputs.tags }}"
-      #     echo "Tagged Image: ${{ steps.build_image_multiarch.outputs.image-with-tag }}"
-
       - name: Check images created
         run: buildah images | grep '${{ env.IMAGE_NAME }}'
 
@@ -98,16 +81,6 @@ jobs:
 
       - name: Push manifest
         run: buildah manifest push ${{ env.IMAGE_NAME }}:latest docker://quay.io/diagrawa/${{ env.IMAGE_NAME }}:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
-      # - name: Push manifest
-      #   uses: redhat-actions/push-to-registry@v2
-      #   with:
-      #     image: ${{ env.IMAGE_NAME }}
-      #     tags: latest
-      #     registry: quay.io/diagrawa
-      #     username: diagrawa
-      #     extra-args: --all
-      #     password: ${{ secrets.REGISTRY_PASSWORD }}
-
 
   build-multiplatform-containerfile:
     name: Build multi-platform image using Containerfile
@@ -132,27 +105,11 @@ jobs:
           ENTRYPOINT [ "sh", "-c", "echo -n 'Machine: ' && uname -m && echo -n 'Bits: ' && getconf LONG_BIT && echo 'goodbye world'" ]
           EOF
 
-      # - name: Build Image
-      #   id: build_image_multiplatform
-      #   uses: ./buildah-build/
-      #   with:
-      #     image: ${{ env.IMAGE_NAME }}
-      #     tags: ${{ env.IMAGE_TAG }}
-      #     platform: ${{ matrix.platform }}
-      #     containerfiles: |
-      #       ./Containerfile
-
       - name: Build image linux/amd64
         run: buildah bud --platform linux/amd64 -f ./Containerfile3 --format docker -t ${{ env.IMAGE_NAME }}:linux-amd64
 
       - name: Build image linux/arm64/v8
         run: buildah bud --platform linux/arm64/v8 -f ./Containerfile3 --format docker -t ${{ env.IMAGE_NAME }}:linux-arm64-v8
-
-      # - name: Echo Outputs
-      #   run: |
-      #     echo "Image: ${{ steps.build_image_multiplatform.outputs.image }}"
-      #     echo "Tags: ${{ steps.build_image_multiplatform.outputs.tags }}"
-      #     echo "Tagged Image: ${{ steps.build_image_multiplatform.outputs.image-with-tag }}"
 
       - name: Check images created
         run: buildah images | grep '${{ env.IMAGE_NAME }}'
@@ -263,14 +220,14 @@ jobs:
           buildah from registry.access.redhat.com/openjdk/openjdk-11-rhel7
           buildah config --entrypoint ["java","-jar","spring-petclinic-*.jar"] --port 8080 --arch amd64 --workingdir . openjdk-11-rhel7-working-container
           buildah copy openjdk-11-rhel7-working-container ./spring-petclinic/target/spring-petclinic-*.jar
-          buildah commit --format docker --manifest ${{ env.IMAGE_NAME }} --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:amd64
+          buildah commit --format docker --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:amd64
 
       - name: Build image arm64v8
         run: |
           buildah from registry.access.redhat.com/openjdk/openjdk-11-rhel7
           buildah config --entrypoint ["java","-jar","spring-petclinic-*.jar"] --port 8080 --arch arm64v8 --workingdir . openjdk-11-rhel7-working-container
           buildah copy openjdk-11-rhel7-working-container ./spring-petclinic/target/spring-petclinic-*.jar
-          buildah commit --format docker --manifest ${{ env.IMAGE_NAME }} --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:arm64v8
+          buildah commit --format docker --squash openjdk-11-rhel7-working-container spring-petclinic-multiarch:arm64v8
 
       # - name: Build Image arm64v8
       #   uses: ./buildah-build/
