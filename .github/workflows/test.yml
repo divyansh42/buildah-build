@@ -41,6 +41,6 @@ jobs:
           buildah manifest add test-multiarch test-multiarch:amd64
           buildah manifest add test-multiarch test-multiarch:arm64v8
 
-      - run: buildah manifest inspect test-multiarch
+      - run: buildah manifest inspect test-multiarch:latest
 
       - run: buildah manifest push test-multiarch:latest docker://docker.io/diagrawa/test-multiarch:latest --creds diagrawa:${{ secrets.REGISTRY_PASSWORD }} --all
